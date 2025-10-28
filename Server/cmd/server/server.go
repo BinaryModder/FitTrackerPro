@@ -8,6 +8,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/BinaryModder/FitTrackerServer/internal/db"
 	"github.com/BinaryModder/FitTrackerServer/internal/graph"
+	"github.com/BinaryModder/FitTrackerServer/internal/graph/resolvers"
 	"github.com/vektah/gqlparser/v2/ast"
 	"log"
 	"net/http"
@@ -29,7 +30,7 @@ func main() {
 	}
 
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{
-		Resolvers: &graph.Resolver{
+		Resolvers: &resolvers.Resolver{
 			DB: database,
 		},
 	}))

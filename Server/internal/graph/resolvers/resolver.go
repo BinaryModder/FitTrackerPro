@@ -1,4 +1,4 @@
-package graph
+package resolvers
 
 import (
 	"gorm.io/gorm"

@@ -2,5 +2,25 @@
 
 package model
 
+type Mutation struct {
+}
+
+type NewUser struct {
+	Username  string  `json:"username"`
+	Email     *string `json:"email,omitempty"`
+	FirstName *string `json:"first_name,omitempty"`
+	LastName  *string `json:"last_name,omitempty"`
+	Password  *string `json:"password,omitempty"`
+}
+
 type Query struct {
+}
+
+type User struct {
+	ID        string  `json:"id"`
+	Username  string  `json:"username"`
+	Email     *string `json:"email,omitempty"`
+	FirstName *string `json:"first_name,omitempty"`
+	LastName  *string `json:"last_name,omitempty"`
+	Password  *string `json:"password,omitempty"`
 }
