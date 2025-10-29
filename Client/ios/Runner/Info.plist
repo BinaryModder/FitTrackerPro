@@ -4,6 +4,10 @@
 <dict>
 	<key>NSMotionUsageDescription</key>
 	<string>This app needs access to motion and fitness data to track your steps.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>This app needs access to health data to track your steps and activity.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>This app needs to update health data for step tracking.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

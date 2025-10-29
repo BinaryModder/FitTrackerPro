@@ -23,8 +23,9 @@ if (flutterVersionName == null) {
 }
 
 android {
-    namespace "com.example.flutter_redesign"
-    compileSdk 35
+    namespace "com.example.fitnesstracker"
+    compileSdk 36  
+    
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -40,13 +41,12 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.example.flutter_redesign"
+        applicationId "com.example.fitnesstracker"
         minSdkVersion flutter.minSdkVersion
-        targetSdk 35
+        targetSdk 36  
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }
-
     buildTypes {
         release {
             signingConfig signingConfigs.debug

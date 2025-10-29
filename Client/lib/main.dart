@@ -1,12 +1,41 @@
 import 'package:flutter/material.dart';
-import 'package:pedometer/pedometer.dart';
+import 'package:health/health.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:workmanager/workmanager.dart';
+import 'services/background_service.dart';
+import 'services/workmanager_service.dart';
 import 'catalog.dart';
 import 'profile.dart';
 import 'workouts.dart';
 import 'activity.dart';
 import 'nutritions.dart';
 
-void main() => runApp(const FitnessApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Инициализация background service
+  await initializeBackgroundService();
+  
+  // Инициализация Workmanager
+  await Workmanager().initialize(
+    callbackDispatcher,
+    isInDebugMode: false,
+  );
+  
+  // Запуск периодических задач
+  await Workmanager().registerPeriodicTask(
+    "stepTracker",
+    "stepTrackingTask",
+    frequency: const Duration(minutes: 15),
+    constraints: Constraints(
+      networkType: NetworkType.not_required,
+    ),
+  );
+  
+  runApp(const FitnessApp());
+}
 
 class FitnessApp extends StatelessWidget {
   const FitnessApp({super.key});
@@ -27,39 +56,178 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _steps = 0;
-  String _status = 'waiting';
-  late Stream<StepCount> _stepCountStream;
-  late Stream<PedestrianStatus> _pedestrianStatusStream;
+  bool _isAuthorized = false;
+  bool _isLoading = true;
+  bool _hasError = false;
+  DateTime? _lastUpdate;
+  
+  // Создаем экземпляр HealthFactory
+  final HealthFactory health = HealthFactory();
+  static final types = [HealthDataType.STEPS];
 
   @override
   void initState() {
     super.initState();
-    _initPedometer();
+    WidgetsBinding.instance.addObserver(this);
+    _initializeApp();
+    _setupBackgroundServiceListener();
   }
 
-  void _initPedometer() {
-    _pedestrianStatusStream = Pedometer.pedestrianStatusStream;
-    _pedestrianStatusStream.listen(_onPedestrianStatusChanged);
-
-    _stepCountStream = Pedometer.stepCountStream;
-    _stepCountStream.listen(_onStepCount);
-
-    Pedometer.stepCountStream.listen(_onStepCount);
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
-  void _onStepCount(StepCount event) {
-    print('Steps: ${event.steps}');
-    setState(() {
-      _steps = event.steps;
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadCachedData();
+      _fetchSteps();
+    } else if (state == AppLifecycleState.paused) {
+      _saveCurrentData();
+    }
+  }
+
+  Future<void> _initializeApp() async {
+    await _loadCachedData();
+    await _initHealth();
+    await _startBackgroundService();
+  }
+
+  Future<void> _loadCachedData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedSteps = prefs.getInt('background_steps');
+      final lastUpdate = prefs.getString('last_update');
+      
+      if (cachedSteps != null) {
+        setState(() {
+          _steps = cachedSteps;
+        });
+      }
+      
+      if (lastUpdate != null) {
+        setState(() {
+          _lastUpdate = DateTime.parse(lastUpdate);
+        });
+      }
+    } catch (e) {
+      print('Error loading cached data: $e');
+    }
+  }
+
+  Future<void> _saveCurrentData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('background_steps', _steps);
+      await prefs.setString('last_update', DateTime.now().toIso8601String());
+    } catch (e) {
+      print('Error saving data: $e');
+    }
+  }
+
+  Future<void> _initHealth() async {
+    try {
+      await _requestPermissions();
+      
+      // Используем экземпляр health
+      bool authorized = await health.requestAuthorization(types);
+      
+      setState(() {
+        _isAuthorized = authorized;
+      });
+
+      if (_isAuthorized) {
+        await _fetchSteps();
+      } else {
+        setState(() {
+          _hasError = true;
+        });
+      }
+    } catch (e) {
+      print('Error initializing health: $e');
+      setState(() {
+        _hasError = true;
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _requestPermissions() async {
+    // Используем Platform из dart:io
+    await [
+      Permission.activityRecognition,
+      Permission.location,
+      Permission.notification,
+      Permission.ignoreBatteryOptimizations,
+    ].request();
+  }
+
+  Future<void> _startBackgroundService() async {
+    final service = FlutterBackgroundService();
+    await service.startService();
+  }
+
+  void _setupBackgroundServiceListener() {
+    FlutterBackgroundService().on('update').listen((event) {
+      if (event != null) {
+        final steps = event['steps'];
+        if (steps != null) {
+          setState(() {
+            _steps = steps;
+            _lastUpdate = DateTime.now();
+          });
+          _saveCurrentData();
+        }
+      }
     });
   }
 
-  void _onPedestrianStatusChanged(PedestrianStatus event) {
-    print('Status: $event');
+  Future<void> _fetchSteps() async {
+    try {
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day);
+      
+      // Используем экземпляр health
+      List<HealthDataPoint> stepsData = await health.getHealthDataFromTypes(
+        startOfDay, 
+        now, 
+        types,
+      );
+      
+      int totalSteps = 0;
+      for (var dataPoint in stepsData) {
+        if (dataPoint.type == HealthDataType.STEPS) {
+          // Исправляем получение значения
+          totalSteps += (dataPoint.value as num).toInt();
+        }
+      }
+      
+      setState(() {
+        _steps = totalSteps;
+        _lastUpdate = DateTime.now();
+        _hasError = false;
+      });
+      
+      await _saveCurrentData();
+    } catch (e) {
+      print('Error fetching steps: $e');
+    }
+  }
+
+  Future<void> _refreshData() async {
     setState(() {
-      _status = event.status;
+      _isLoading = true;
+    });
+    await _fetchSteps();
+    setState(() {
+      _isLoading = false;
     });
   }
 
@@ -71,8 +239,99 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   double _calculateDistance(int steps) {
-    // Средняя длина шага ~0.0008 км
     return (steps * 0.0008);
+  }
+
+  String _getLastUpdateText() {
+    if (_lastUpdate == null) return '';
+    final now = DateTime.now();
+    final difference = now.difference(_lastUpdate!);
+    
+    if (difference.inMinutes < 1) return 'Just now';
+    if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
+    if (difference.inHours < 24) return '${difference.inHours}h ago';
+    return '${difference.inDays}d ago';
+  }
+
+  Widget _buildStepsCard() {
+    if (_isLoading) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: Color(0xFFD46C3B)),
+            SizedBox(height: 10),
+            Text('Loading...', style: TextStyle(fontSize: 12)),
+          ],
+        ),
+      );
+    }
+
+    if (_hasError || !_isAuthorized) {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 36, color: Colors.red[400]),
+          const SizedBox(height: 14),
+          const Text(
+            'Need Permissions',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          ElevatedButton(
+            onPressed: _initHealth,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD46C3B),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Grant Access'),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          _steps > 0 ? Icons.directions_walk : Icons.accessibility_new,
+          size: 36,
+          color: const Color(0xFFD46C3B),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          _formatSteps(_steps),
+          style: const TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'steps',
+          style: TextStyle(fontSize: 18, color: Colors.black54),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${_calculateDistance(_steps).toStringAsFixed(2)} km',
+          style: const TextStyle(fontSize: 14, color: Colors.black45),
+        ),
+        if (_lastUpdate != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            _getLastUpdateText(),
+            style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+          ),
+        ],
+        const SizedBox(height: 8),
+        IconButton(
+          onPressed: _refreshData,
+          icon: const Icon(Icons.refresh, size: 20),
+          color: const Color(0xFF446E67),
+        ),
+      ],
+    );
   }
 
   @override
@@ -222,43 +481,7 @@ class _MainScreenState extends State<MainScreen> {
                                   ),
                                 ],
                               ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    _status == 'walking' 
-                                      ? Icons.directions_walk 
-                                      : Icons.accessibility_new,
-                                    size: 36,
-                                    color: const Color(0xFFD46C3B),
-                                  ),
-                                  const SizedBox(height: 14),
-                                  Text(
-                                    _formatSteps(_steps),
-                                    style: const TextStyle(
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  const Text(
-                                    'steps',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      color: Colors.black54,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${_calculateDistance(_steps).toStringAsFixed(2)} km',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.black45,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                              child: _buildStepsCard(),
                             ),
                           ),
                         ),
@@ -274,8 +497,7 @@ class _MainScreenState extends State<MainScreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) =>
-                                          const WorkoutsPage(),
+                                      builder: (context) => const WorkoutsPage(),
                                     ),
                                   );
                                 },
@@ -322,8 +544,7 @@ class _MainScreenState extends State<MainScreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) =>
-                                          const NutritionScreen(),
+                                      builder: (context) => const NutritionScreen(),
                                     ),
                                   );
                                 },
