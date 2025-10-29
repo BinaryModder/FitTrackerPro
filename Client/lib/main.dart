@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pedometer/pedometer.dart';
 import 'catalog.dart';
 import 'profile.dart';
 import 'workouts.dart';
@@ -19,8 +20,60 @@ class FitnessApp extends StatelessWidget {
   }
 }
 
-class MainScreen extends StatelessWidget {
+class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
+
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
+  int _steps = 0;
+  String _status = 'waiting';
+  late Stream<StepCount> _stepCountStream;
+  late Stream<PedestrianStatus> _pedestrianStatusStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _initPedometer();
+  }
+
+  void _initPedometer() {
+    _pedestrianStatusStream = Pedometer.pedestrianStatusStream;
+    _pedestrianStatusStream.listen(_onPedestrianStatusChanged);
+
+    _stepCountStream = Pedometer.stepCountStream;
+    _stepCountStream.listen(_onStepCount);
+
+    Pedometer.stepCountStream.listen(_onStepCount);
+  }
+
+  void _onStepCount(StepCount event) {
+    print('Steps: ${event.steps}');
+    setState(() {
+      _steps = event.steps;
+    });
+  }
+
+  void _onPedestrianStatusChanged(PedestrianStatus event) {
+    print('Status: $event');
+    setState(() {
+      _status = event.status;
+    });
+  }
+
+  String _formatSteps(int steps) {
+    return steps.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
+  }
+
+  double _calculateDistance(int steps) {
+    // Средняя длина шага ~0.0008 км
+    return (steps * 0.0008);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -169,29 +222,39 @@ class MainScreen extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              child: const Column(
+                              child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(
-                                    Icons.circle,
+                                    _status == 'walking' 
+                                      ? Icons.directions_walk 
+                                      : Icons.accessibility_new,
                                     size: 36,
-                                    color: Color(0xFFD46C3B),
+                                    color: const Color(0xFFD46C3B),
                                   ),
-                                  SizedBox(height: 14),
+                                  const SizedBox(height: 14),
                                   Text(
-                                    '7,120',
-                                    style: TextStyle(
+                                    _formatSteps(_steps),
+                                    style: const TextStyle(
                                       fontSize: 32,
                                       fontWeight: FontWeight.bold,
                                       color: Colors.black,
                                     ),
                                   ),
-                                  SizedBox(height: 6),
-                                  Text(
+                                  const SizedBox(height: 6),
+                                  const Text(
                                     'steps',
                                     style: TextStyle(
                                       fontSize: 18,
                                       color: Colors.black54,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${_calculateDistance(_steps).toStringAsFixed(2)} km',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.black45,
                                     ),
                                   ),
                                 ],
