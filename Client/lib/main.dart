@@ -11,7 +11,7 @@ import 'profile.dart';
 import 'workouts.dart';
 import 'activity.dart';
 import 'nutritions.dart';
-// networkType: NetworkType.connected,
+//health
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -62,6 +62,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   bool _isLoading = true;
   bool _hasError = false;
   DateTime? _lastUpdate;
+  
   
   final HealthFactory health = HealthFactory();
   static final types = [HealthDataType.STEPS];
@@ -129,34 +130,35 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _initHealth() async {
-  try {
-    await _requestPermissions();
-    
-     bool authorized = await health.requestAuthorization(types);
-    setState(() {
-      _isAuthorized = authorized;
-    });
+    try {
+      await _requestPermissions();
+      
+      // Для health 4.0.0
+      bool authorized = await health.requestAuthorization(types);
+      setState(() {
+        _isAuthorized = authorized;
+      });
 
-    if (_isAuthorized) {
-      await _fetchSteps();
-    } else {
+      if (_isAuthorized) {
+        await _fetchSteps();
+      } else {
+        setState(() {
+          _hasError = true;
+        });
+      }
+    } catch (e) {
+      print('Error initializing health: $e');
       setState(() {
         _hasError = true;
       });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
-  } catch (e) {
-    print('Error initializing health: $e');
-    setState(() {
-      _hasError = true;
-    });
-  } finally {
-    setState(() {
-      _isLoading = false;
-    });
   }
-}
+
   Future<void> _requestPermissions() async {
-    // Используем Platform из dart:io
     await [
       Permission.activityRecognition,
       Permission.location,
@@ -170,49 +172,51 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     await service.startService();
   }
 
-void _setupBackgroundServiceListener() {
-  FlutterBackgroundService().on('update').listen((event) {
-    if (event != null) {
-      final steps = event['steps'];
-      if (steps != null) {
-        setState(() {
-          _steps = steps;
-          _lastUpdate = DateTime.now();
-        });
-        _saveCurrentData();
+  void _setupBackgroundServiceListener() {
+    FlutterBackgroundService().on('update').listen((event) {
+      if (event != null) {
+        final steps = event['steps'];
+        if (steps != null) {
+          setState(() {
+            _steps = steps;
+            _lastUpdate = DateTime.now();
+          });
+          _saveCurrentData();
+        }
       }
-    }
-  });
-}
+    });
+  }
+
   Future<void> _fetchSteps() async {
-  try {
-    final now = DateTime.now();
-    final startOfDay = DateTime(now.year, now.month, now.day);
-    
-    List<HealthDataPoint> stepsData = await health.getHealthDataFromTypes(
+    try {
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day);
+      
+      // Для health 4.0.0
+      List<HealthDataPoint> stepsData = await health.getHealthDataFromTypes(
         startOfDay, 
         now, 
         types,
       );
-    
-    int totalSteps = 0;
-    for (var dataPoint in stepsData) {
-      if (dataPoint.type == HealthDataType.STEPS) {
-        totalSteps += (dataPoint.value as num).toInt();
+      
+      int totalSteps = 0;
+      for (var dataPoint in stepsData) {
+        if (dataPoint.type == HealthDataType.STEPS) {
+          totalSteps += (dataPoint.value as num).toInt();
+        }
       }
+      
+      setState(() {
+        _steps = totalSteps;
+        _lastUpdate = DateTime.now();
+        _hasError = false;
+      });
+      
+      await _saveCurrentData();
+    } catch (e) {
+      print('Error fetching steps: $e');
     }
-    
-    setState(() {
-      _steps = totalSteps;
-      _lastUpdate = DateTime.now();
-      _hasError = false;
-    });
-    
-    await _saveCurrentData();
-  } catch (e) {
-    print('Error fetching steps: $e');
   }
-}
 
   Future<void> _refreshData() async {
     setState(() {

@@ -3,7 +3,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_background_service_android/flutter_background_service_android.dart';
 import 'package:health/health.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-//health
+
 Future<void> initializeBackgroundService() async {
   final service = FlutterBackgroundService();
 
@@ -40,9 +40,9 @@ void onStart(ServiceInstance service) async {
 }
 
 Future<void> _startStepTracking(ServiceInstance service) async {
-
-  
+  final HealthFactory health = HealthFactory();
   final types = [HealthDataType.STEPS];
+  
   Timer.periodic(const Duration(minutes: 5), (timer) async {
     if (service is AndroidServiceInstance) {
       service.setForegroundNotificationInfo(
@@ -52,12 +52,10 @@ Future<void> _startStepTracking(ServiceInstance service) async {
     }
 
     try {
-      final HealthFactory health = HealthFactory();
-      final types = [HealthDataType.STEPS];
-      
       final now = DateTime.now();
       final startOfDay = DateTime(now.year, now.month, now.day);
       
+      // Для health 4.0.0
       List<HealthDataPoint> stepsData = await health.getHealthDataFromTypes(
         startOfDay, 
         now, 
