@@ -40,7 +40,6 @@ void onStart(ServiceInstance service) async {
 }
 
 Future<void> _startStepTracking(ServiceInstance service) async {
-  final HealthFactory health = HealthFactory();
   final types = [HealthDataType.STEPS];
   
   Timer.periodic(const Duration(minutes: 5), (timer) async {
@@ -55,7 +54,8 @@ Future<void> _startStepTracking(ServiceInstance service) async {
       final now = DateTime.now();
       final startOfDay = DateTime(now.year, now.month, now.day);
       
-      // Для health 4.0.0
+      // Для health 13.2.1 - правильный API
+      final health = Health();
       List<HealthDataPoint> stepsData = await health.getHealthDataFromTypes(
         startOfDay, 
         now, 

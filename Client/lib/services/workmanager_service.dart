@@ -8,13 +8,13 @@ void callbackDispatcher() {
     print("Workmanager: Task running - $task");
     
     try {
-      final HealthFactory health = HealthFactory();
       final types = [HealthDataType.STEPS];
       
       final now = DateTime.now();
       final startOfDay = DateTime(now.year, now.month, now.day);
       
-      // Для health 4.0.0
+      // Для health 13.2.1 - правильный API
+      final health = Health();
       List<HealthDataPoint> stepsData = await health.getHealthDataFromTypes(
         startOfDay, 
         now, 

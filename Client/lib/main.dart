@@ -11,7 +11,7 @@ import 'profile.dart';
 import 'workouts.dart';
 import 'activity.dart';
 import 'nutritions.dart';
-//health
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -29,9 +29,6 @@ void main() async {
     "stepTracker",
     "stepTrackingTask",
     frequency: const Duration(minutes: 15),
-    constraints: Constraints(
-      networkType: NetworkType.connected,
-    ),
   );
   
   runApp(const FitnessApp());
@@ -63,8 +60,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   bool _hasError = false;
   DateTime? _lastUpdate;
   
-  
-  final HealthFactory health = HealthFactory();
+  // Для health 13.2.1 - используем Health напрямую
   static final types = [HealthDataType.STEPS];
 
   @override
@@ -130,33 +126,34 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _initHealth() async {
-    try {
-      await _requestPermissions();
-      
-      // Для health 4.0.0
-      bool authorized = await health.requestAuthorization(types);
-      setState(() {
-        _isAuthorized = authorized;
-      });
+  try {
+    await _requestPermissions();
+    
+    // Для health 13.2.1 - правильный API
+    final health = Health();
+    bool authorized = await health.requestAuthorization(types);
+    setState(() {
+      _isAuthorized = authorized;
+    });
 
-      if (_isAuthorized) {
-        await _fetchSteps();
-      } else {
-        setState(() {
-          _hasError = true;
-        });
-      }
-    } catch (e) {
-      print('Error initializing health: $e');
+    if (_isAuthorized) {
+      await _fetchSteps();
+    } else {
       setState(() {
         _hasError = true;
       });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
     }
+  } catch (e) {
+    print('Error initializing health: $e');
+    setState(() {
+      _hasError = true;
+    });
+  } finally {
+    setState(() {
+      _isLoading = false;
+    });
   }
+}
 
   Future<void> _requestPermissions() async {
     await [
@@ -169,7 +166,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   Future<void> _startBackgroundService() async {
     final service = FlutterBackgroundService();
-    await service.startService();
+    var isRunning = await service.isRunning();
+    if (!isRunning) {
+      await service.startService();
+    }
   }
 
   void _setupBackgroundServiceListener() {
@@ -188,36 +188,36 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _fetchSteps() async {
-    try {
-      final now = DateTime.now();
-      final startOfDay = DateTime(now.year, now.month, now.day);
-      
-      // Для health 4.0.0
-      List<HealthDataPoint> stepsData = await health.getHealthDataFromTypes(
-        startOfDay, 
-        now, 
-        types,
-      );
-      
-      int totalSteps = 0;
-      for (var dataPoint in stepsData) {
-        if (dataPoint.type == HealthDataType.STEPS) {
-          totalSteps += (dataPoint.value as num).toInt();
-        }
+  try {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    
+    // Для health 13.2.1 - правильный API
+    final health = Health();
+    List<HealthDataPoint> stepsData = await health.getHealthDataFromTypes(
+      startOfDay, 
+      now, 
+      types,
+    );
+    
+    int totalSteps = 0;
+    for (var dataPoint in stepsData) {
+      if (dataPoint.type == HealthDataType.STEPS) {
+        totalSteps += (dataPoint.value as num).toInt();
       }
-      
-      setState(() {
-        _steps = totalSteps;
-        _lastUpdate = DateTime.now();
-        _hasError = false;
-      });
-      
-      await _saveCurrentData();
-    } catch (e) {
-      print('Error fetching steps: $e');
     }
+    
+    setState(() {
+      _steps = totalSteps;
+      _lastUpdate = DateTime.now();
+      _hasError = false;
+    });
+    
+    await _saveCurrentData();
+  } catch (e) {
+    print('Error fetching steps: $e');
   }
-
+}
   Future<void> _refreshData() async {
     setState(() {
       _isLoading = true;
