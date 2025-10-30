@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:health/health.dart'; // Убедитесь что этот импорт работает
+import 'package:health/health.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';

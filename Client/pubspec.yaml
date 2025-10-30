@@ -9,12 +9,15 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  health: ^13.2.1
   permission_handler: ^12.0.1
   shared_preferences: ^2.5.3
   flutter_background_service: ^5.1.0
   flutter_background_service_android: ^6.3.1
   workmanager: ^0.9.0
+  health:
+    git:
+      url: https://github.com/cph-cachet/flutter-plugins.git
+      path: packages/health
 
 dev_dependencies:
   flutter_test:
