@@ -52,12 +52,13 @@ Future<void> _startStepTracking(ServiceInstance service) async {
     }
 
     try {
+      final HealthFactory health = HealthFactory();
       final types = [HealthDataType.STEPS];
       
       final now = DateTime.now();
       final startOfDay = DateTime(now.year, now.month, now.day);
       
-      List<HealthDataPoint> stepsData = await HealthFactory.getHealthDataFromTypes(
+      List<HealthDataPoint> stepsData = await health.getHealthDataFromTypes(
         startOfDay, 
         now, 
         types,

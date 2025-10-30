@@ -63,6 +63,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   bool _hasError = false;
   DateTime? _lastUpdate;
   
+  final HealthFactory health = HealthFactory();
   static final types = [HealthDataType.STEPS];
 
   @override
@@ -131,7 +132,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   try {
     await _requestPermissions();
     
-    bool authorized = await HealthFactory.requestAuthorization(types);
+     bool authorized = await health.requestAuthorization(types);
     setState(() {
       _isAuthorized = authorized;
     });
@@ -188,7 +189,7 @@ void _setupBackgroundServiceListener() {
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
     
-    List<HealthDataPoint> stepsData = await HealthFactory.getHealthDataFromTypes(
+    List<HealthDataPoint> stepsData = await health.getHealthDataFromTypes(
         startOfDay, 
         now, 
         types,
