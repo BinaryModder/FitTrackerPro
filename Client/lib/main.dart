@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:health/health.dart';
+import 'package:health/health.dart'; // Убедитесь что этот импорт работает
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,7 +11,7 @@ import 'profile.dart';
 import 'workouts.dart';
 import 'activity.dart';
 import 'nutritions.dart';
-
+// networkType: NetworkType.connected,
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -30,7 +30,7 @@ void main() async {
     "stepTrackingTask",
     frequency: const Duration(minutes: 15),
     constraints: Constraints(
-      networkType: NetworkType.not_required,
+      networkType: NetworkType.connected,
     ),
   );
   
@@ -63,8 +63,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   bool _hasError = false;
   DateTime? _lastUpdate;
   
-  // Создаем экземпляр HealthFactory
-  final HealthFactory health = HealthFactory();
   static final types = [HealthDataType.STEPS];
 
   @override
@@ -130,35 +128,32 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _initHealth() async {
-    try {
-      await _requestPermissions();
-      
-      // Используем экземпляр health
-      bool authorized = await health.requestAuthorization(types);
-      
-      setState(() {
-        _isAuthorized = authorized;
-      });
+  try {
+    await _requestPermissions();
+    
+    bool authorized = await HealthFactory.requestAuthorization(types);
+    setState(() {
+      _isAuthorized = authorized;
+    });
 
-      if (_isAuthorized) {
-        await _fetchSteps();
-      } else {
-        setState(() {
-          _hasError = true;
-        });
-      }
-    } catch (e) {
-      print('Error initializing health: $e');
+    if (_isAuthorized) {
+      await _fetchSteps();
+    } else {
       setState(() {
         _hasError = true;
       });
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
     }
+  } catch (e) {
+    print('Error initializing health: $e');
+    setState(() {
+      _hasError = true;
+    });
+  } finally {
+    setState(() {
+      _isLoading = false;
+    });
   }
-
+}
   Future<void> _requestPermissions() async {
     // Используем Platform из dart:io
     await [
@@ -174,52 +169,49 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     await service.startService();
   }
 
-  void _setupBackgroundServiceListener() {
-    FlutterBackgroundService().on('update').listen((event) {
-      if (event != null) {
-        final steps = event['steps'];
-        if (steps != null) {
-          setState(() {
-            _steps = steps;
-            _lastUpdate = DateTime.now();
-          });
-          _saveCurrentData();
-        }
+void _setupBackgroundServiceListener() {
+  FlutterBackgroundService().on('update').listen((event) {
+    if (event != null) {
+      final steps = event['steps'];
+      if (steps != null) {
+        setState(() {
+          _steps = steps;
+          _lastUpdate = DateTime.now();
+        });
+        _saveCurrentData();
       }
-    });
-  }
-
+    }
+  });
+}
   Future<void> _fetchSteps() async {
-    try {
-      final now = DateTime.now();
-      final startOfDay = DateTime(now.year, now.month, now.day);
-      
-      // Используем экземпляр health
-      List<HealthDataPoint> stepsData = await health.getHealthDataFromTypes(
+  try {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    
+    List<HealthDataPoint> stepsData = await HealthFactory.getHealthDataFromTypes(
         startOfDay, 
         now, 
         types,
       );
-      
-      int totalSteps = 0;
-      for (var dataPoint in stepsData) {
-        if (dataPoint.type == HealthDataType.STEPS) {
-          // Исправляем получение значения
-          totalSteps += (dataPoint.value as num).toInt();
-        }
+    
+    int totalSteps = 0;
+    for (var dataPoint in stepsData) {
+      if (dataPoint.type == HealthDataType.STEPS) {
+        totalSteps += (dataPoint.value as num).toInt();
       }
-      
-      setState(() {
-        _steps = totalSteps;
-        _lastUpdate = DateTime.now();
-        _hasError = false;
-      });
-      
-      await _saveCurrentData();
-    } catch (e) {
-      print('Error fetching steps: $e');
     }
+    
+    setState(() {
+      _steps = totalSteps;
+      _lastUpdate = DateTime.now();
+      _hasError = false;
+    });
+    
+    await _saveCurrentData();
+  } catch (e) {
+    print('Error fetching steps: $e');
   }
+}
 
   Future<void> _refreshData() async {
     setState(() {

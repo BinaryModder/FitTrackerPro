@@ -8,24 +8,20 @@ void callbackDispatcher() {
     print("Workmanager: Task running - $task");
     
     try {
-      // Создаем экземпляр HealthFactory внутри workmanager
-      final HealthFactory health = HealthFactory();
+      
       final types = [HealthDataType.STEPS];
       
       final now = DateTime.now();
       final startOfDay = DateTime(now.year, now.month, now.day);
       
-      // Используем экземпляр health
-      List<HealthDataPoint> stepsData = await health.getHealthDataFromTypes(
+       List<HealthDataPoint> stepsData = await HealthFactory.getHealthDataFromTypes(
         startOfDay, 
         now, 
         types,
       );
-      
       int totalSteps = 0;
       for (var dataPoint in stepsData) {
         if (dataPoint.type == HealthDataType.STEPS) {
-          // Исправляем получение значения
           totalSteps += (dataPoint.value as num).toInt();
         }
       }
