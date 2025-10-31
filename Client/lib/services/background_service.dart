@@ -56,10 +56,10 @@ Future<void> _startStepTracking(ServiceInstance service) async {
       
       // Для health 13.2.1 - правильный API
       final health = Health();
-      List<HealthDataPoint> stepsData = await health.getHealthDataFromTypes(
-        startOfDay, 
-        now, 
-        types,
+            List<HealthDataPoint> stepsData = await health.getHealthDataFromTypes(
+        startTime: startOfDay,
+        endTime: now,
+        types: [HealthDataType.STEPS],
       );
       
       int totalSteps = 0;

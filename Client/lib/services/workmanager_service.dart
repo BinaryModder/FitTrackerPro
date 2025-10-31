@@ -16,9 +16,9 @@ void callbackDispatcher() {
       // Для health 13.2.1 - правильный API
       final health = Health();
       List<HealthDataPoint> stepsData = await health.getHealthDataFromTypes(
-        startOfDay, 
-        now, 
-        types,
+        startTime: startOfDay,
+        endTime: now,
+        types: [HealthDataType.STEPS],
       );
       int totalSteps = 0;
       for (var dataPoint in stepsData) {

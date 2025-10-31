@@ -40,12 +40,13 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.example.fitnesstracker"
-        minSdkVersion flutter.minSdkVersion
-        targetSdk 34
-        versionCode flutterVersionCode.toInteger()
-        versionName flutterVersionName
-    }
+    applicationId "com.example.fitnesstracker"
+    minSdkVersion 26          // 🔥 было 24 — ставим 26
+    targetSdk 34
+    versionCode flutterVersionCode.toInteger()
+    versionName flutterVersionName
+}
+
     
     buildTypes {
         release {
