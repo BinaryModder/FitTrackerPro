@@ -1,10 +1,16 @@
-import 'package:workmanager/workmanager.dart';
+import 'dart:ui';
+
+import 'package:flutter/widgets.dart';
 import 'package:health/health.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:workmanager/workmanager.dart';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
+    WidgetsFlutterBinding.ensureInitialized();
+    DartPluginRegistrant.ensureInitialized();
+
     print("Workmanager: Task running - $task");
     
     try {

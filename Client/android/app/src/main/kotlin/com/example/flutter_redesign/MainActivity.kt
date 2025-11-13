@@ -1,4 +1,4 @@
-package com.example.flutter_redesign
+package com.example.fitnesstracker
 
 import io.flutter.embedding.android.FlutterActivity
 
